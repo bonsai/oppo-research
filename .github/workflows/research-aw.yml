@@ -1,0 +1,79 @@
+name: Research AW
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Research Issue number"
+        required: true
+        default: "12"
+      spawn:
+        description: "Spawn parallel AW agents"
+        required: true
+        default: "true"
+
+jobs:
+  inventory:
+    name: 📚 Book Agent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source inventory
+        run: |
+          mkdir -p aw
+          printf '{"agent":"book","issue":%s,"status":"spawned","input":"books.md"}\n' "${{ inputs.issue }}" > aw/book.jsonl
+          test -f books.md
+
+  evidence:
+    name: 🔎 Source Agent
+    needs: inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evidence inventory
+        run: |
+          mkdir -p aw
+          find 2600 0990 -type f -maxdepth 2 2>/dev/null | sort > aw/sources.txt || true
+          printf '{"agent":"source","issue":%s,"status":"spawned"}\n' "${{ inputs.issue }}" > aw/source.jsonl
+
+  ontology:
+    name: 🕸 Ontology Agent
+    needs: inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ontology mapping
+        run: |
+          mkdir -p aw
+          printf '{"agent":"ontology","issue":%s,"status":"spawned","dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"]}\n' "${{ inputs.issue }}" > aw/ontology.jsonl
+
+  rag:
+    name: 🗂 RAG Agent
+    needs: [evidence, ontology]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build RAG workspace
+        run: |
+          mkdir -p aw/rag
+          printf '{"agent":"rag","issue":%s,"status":"spawned","output":"aw/rag"}\n' "${{ inputs.issue }}" > aw/rag/status.jsonl
+
+  brief:
+    name: 📝 Research Brief Agent
+    needs: [inventory, evidence, ontology, rag]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate execution manifest
+        run: |
+          mkdir -p aw
+          cat > aw/manifest.json <<EOF
+          {
+            "issue": ${{ inputs.issue }},
+            "mission": "Research AW",
+            "agents": ["book", "source", "ontology", "rag", "brief"],
+            "status": "spawned",
+            "next": "claim extraction and Research Brief"
+          }
+          EOF
+          cat aw/manifest.json
