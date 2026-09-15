@@ -18,11 +18,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Source inventory
+      - name: Inventory books.md
         run: |
           mkdir -p aw
-          printf '{"agent":"book","issue":%s,"status":"spawned","input":"books.md"}\n' "${{ inputs.issue }}" > aw/book.jsonl
-          test -f books.md
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          text = Path('books.md').read_text()
+          rows = []
+          for line in text.splitlines():
+              s = line.strip()
+              if s.startswith('- ') or s.startswith('## '):
+                  rows.append(s.lstrip('#- ').strip())
+          Path('aw/book.jsonl').write_text('\n'.join(json.dumps({'agent':'book','item':x,'issue':int('${{ inputs.issue }}')}, ensure_ascii=False) for x in rows) + '\n')
+          print(f'inventory: {len(rows)} items')
+          PY
 
   evidence:
     name: 🔎 Source Agent
@@ -30,11 +40,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Evidence inventory
+      - name: Extract source files
         run: |
           mkdir -p aw
-          find 2600 0990 -type f -maxdepth 2 2>/dev/null | sort > aw/sources.txt || true
-          printf '{"agent":"source","issue":%s,"status":"spawned"}\n' "${{ inputs.issue }}" > aw/source.jsonl
+          find 2600 0990 -type f -maxdepth 2 2>/dev/null | sort | tee aw/sources.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          files = Path('aw/sources.txt').read_text().splitlines()
+          with open('aw/source.jsonl','w') as f:
+              for p in files:
+                  f.write(json.dumps({'agent':'source','path':p,'issue':int('${{ inputs.issue }}')}, ensure_ascii=False)+'\n')
+          PY
 
   ontology:
     name: 🕸 Ontology Agent
@@ -42,10 +59,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Ontology mapping
+      - name: Build ontology manifest
         run: |
           mkdir -p aw
-          printf '{"agent":"ontology","issue":%s,"status":"spawned","dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"]}\n' "${{ inputs.issue }}" > aw/ontology.jsonl
+          cat > aw/ontology.jsonl <<EOF
+          {"agent":"ontology","issue":${{ inputs.issue }},"dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"],"entities":["Person","UnknownPerson","Message","Voice","Information","CommunicationMedium","Network","Community","Relationship","Payment","Memory","Narrative"]}
+          EOF
 
   rag:
     name: 🗂 RAG Agent
@@ -53,10 +72,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build RAG workspace
+      - name: Normalize RAG records
         run: |
           mkdir -p aw/rag
-          printf '{"agent":"rag","issue":%s,"status":"spawned","output":"aw/rag"}\n' "${{ inputs.issue }}" > aw/rag/status.jsonl
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          records=[]
+          for p in Path('2600').glob('**/*'):
+              if p.is_file(): records.append({'id':p.as_posix(),'type':'source','source':p.as_posix(),'evidence_level':'unverified','status':'inventory'})
+          for p in Path('0990').glob('**/*'):
+              if p.is_file(): records.append({'id':p.as_posix(),'type':'source','source':p.as_posix(),'evidence_level':'unverified','status':'inventory'})
+          Path('aw/rag/research.jsonl').write_text('\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n')
+          print(f'RAG records: {len(records)}')
+          PY
 
   brief:
     name: 📝 Research Brief Agent
@@ -64,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Generate execution manifest
+      - name: Generate Research Brief manifest
         run: |
           mkdir -p aw
           cat > aw/manifest.json <<EOF
@@ -72,8 +101,9 @@ jobs:
             "issue": ${{ inputs.issue }},
             "mission": "Research AW",
             "agents": ["book", "source", "ontology", "rag", "brief"],
-            "status": "spawned",
-            "next": "claim extraction and Research Brief"
+            "status": "executed",
+            "outputs": ["aw/book.jsonl", "aw/source.jsonl", "aw/ontology.jsonl", "aw/rag/research.jsonl"],
+            "next": "claim extraction, evidence verification, Research Brief"
           }
           EOF
           cat aw/manifest.json
