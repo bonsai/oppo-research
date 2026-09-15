@@ -62,7 +62,10 @@
 {"agent": "book", "item": "匿名性", "issue": 13, "status": "inventory"}
 {"agent": "book", "item": "相手に何を書いたか", "issue": 13, "status": "inventory"}
 {"agent": "book", "item": "どこまで自分を開示したか", "issue": 13, "status": "inventory"}
+{"agent": "book", "item": "F：P2 / RUSUDENを理解するための追加読書", "issue": 13, "status": "inventory"}
 {"agent": "book", "item": "読書順", "issue": 13, "status": "inventory"}
 {"agent": "book", "item": "小説への変換", "issue": 13, "status": "inventory"}
 {"agent": "book", "item": "P2の読書仮説", "issue": 13, "status": "inventory"}
+{"agent": "book", "item": "Essay", "issue": 13, "status": "inventory"}
+{"agent": "book", "item": "[`research/essay-p2.md`](research/essay-p2.md) — **P2――声を預ける：留守番電話から、もう一度「人に答えてもらう」ために**", "issue": 13, "status": "inventory"}
 {"agent": "book", "item": "Library note", "issue": 13, "status": "inventory"}
