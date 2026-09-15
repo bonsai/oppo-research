@@ -7,97 +7,68 @@ on:
         description: "Research Issue number"
         required: true
         default: "12"
-      spawn:
-        description: "Spawn parallel AW agents"
-        required: true
-        default: "true"
+  push:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  inventory:
-    name: 📚 Book Agent
+  research-aw:
+    name: Research AW #12
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inventory books.md
+
+      - name: Set mission
+        run: echo "ISSUE=${{ inputs.issue || '12' }}" >> "$GITHUB_ENV"
+
+      - name: 📚 Book Agent
         run: |
           mkdir -p aw research/sources
           python - <<'PY'
           import json
           from pathlib import Path
-          text = Path('books.md').read_text()
-          rows = []
+          issue=12
+          text=Path('books.md').read_text()
+          rows=[]
           for line in text.splitlines():
-              s = line.strip()
-              if s.startswith('- ') or s.startswith('## '):
-                  rows.append(s.lstrip('#- ').strip())
-          records = [{'agent':'book','item':x,'issue':int('${{ inputs.issue }}')} for x in rows]
-          Path('aw/book.jsonl').write_text('\n'.join(json.dumps(x, ensure_ascii=False) for x in records) + '\n')
-          Path('research/sources/books.jsonl').write_text('\n'.join(json.dumps(x, ensure_ascii=False) for x in records) + '\n')
-          print(f'inventory: {len(rows)} items')
+              s=line.strip()
+              if s.startswith('- ') or s.startswith('## '): rows.append(s.lstrip('#- ').strip())
+          records=[{'agent':'book','item':x,'issue':issue,'status':'inventory'} for x in rows]
+          text='\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n'
+          Path('aw/book.jsonl').write_text(text)
+          Path('research/sources/books.jsonl').write_text(text)
+          print(f'book inventory: {len(rows)}')
           PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/sources/books.jsonl
-          git commit -m "research: persist book inventory" || true
-          git push
 
-  evidence:
-    name: 🔎 Source Agent
-    needs: inventory
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Extract source files
+      - name: 🔎 Source Agent
         run: |
-          mkdir -p aw research/sources
-          find 2600 0990 -type f -maxdepth 2 2>/dev/null | sort | tee aw/sources.txt
+          mkdir -p research/sources
+          find 2600 0990 -type f -maxdepth 2 2>/dev/null | sort > aw/sources.txt
           python - <<'PY'
           import json
           from pathlib import Path
-          files = Path('aw/sources.txt').read_text().splitlines()
-          records=[]
-          for p in files:
-              records.append({'agent':'source','path':p,'issue':int('${{ inputs.issue }}'),'status':'inventory'})
-          Path('aw/source.jsonl').write_text('\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n')
-          Path('research/sources/inventory.jsonl').write_text('\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n')
+          files=Path('aw/sources.txt').read_text().splitlines()
+          records=[{'agent':'source','path':p,'issue':12,'status':'inventory'} for p in files]
+          text='\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n'
+          Path('aw/source.jsonl').write_text(text)
+          Path('research/sources/inventory.jsonl').write_text(text)
+          print(f'source inventory: {len(files)}')
           PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/sources/inventory.jsonl
-          git commit -m "research: persist source inventory" || true
-          git push
 
-  ontology:
-    name: 🕸 Ontology Agent
-    needs: inventory
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build ontology manifest
+      - name: 🕸 Ontology Agent
         run: |
-          mkdir -p aw research/ontology
-          cat > aw/ontology.jsonl <<EOF
-          {"agent":"ontology","issue":${{ inputs.issue }},"dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"],"entities":["Person","UnknownPerson","Message","Voice","Information","CommunicationMedium","Network","Community","Relationship","Payment","Memory","Narrative"]}
+          mkdir -p research/ontology
+          cat > research/ontology/communication-media.jsonl <<'EOF'
+          {"agent":"ontology","issue":12,"dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"],"entities":["Person","UnknownPerson","Message","Voice","Information","CommunicationMedium","Network","Community","Relationship","Payment","Memory","Narrative"]}
           EOF
-          cp aw/ontology.jsonl research/ontology/communication-media.jsonl
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/ontology/communication-media.jsonl
-          git commit -m "research: persist communication ontology" || true
-          git push
+          cp research/ontology/communication-media.jsonl aw/ontology.jsonl
 
-  rag:
-    name: 🗂 RAG Agent
-    needs: [evidence, ontology]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Normalize RAG records
+      - name: 🗂 RAG Agent
         run: |
-          mkdir -p aw/rag rag research/claims research/timeline
+          mkdir -p rag research/claims research/timeline
           python - <<'PY'
           import json
           from pathlib import Path
@@ -105,46 +76,25 @@ jobs:
           for root in ('2600','0990'):
               for p in Path(root).glob('**/*'):
                   if p.is_file():
-                      records.append({'id':p.as_posix(),'type':'source','source':p.as_posix(),'evidence_level':'unverified','status':'inventory','issue':int('${{ inputs.issue }}')})
+                      records.append({'id':p.as_posix(),'type':'source','source':p.as_posix(),'evidence_level':'unverified','status':'inventory','issue':12})
           text='\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n'
-          Path('aw/rag/research.jsonl').write_text(text)
+          Path('aw/rag-research.jsonl').write_text(text)
           Path('rag/research.jsonl').write_text(text)
           Path('research/claims/README.md').write_text('# Claims\n\nResearch AW claim extraction output. Historical claims require provenance and evidence level A/B/C/D.\n')
           Path('research/timeline/README.md').write_text('# Timeline\n\nResearch AW normalized communication-media timeline.\n')
           print(f'RAG records: {len(records)}')
           PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add rag/research.jsonl research/claims/README.md research/timeline/README.md
-          git commit -m "research: persist RAG output" || true
-          git push
 
-  brief:
-    name: 📝 Research Brief Agent
-    needs: [inventory, evidence, ontology, rag]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Generate Research Brief
+      - name: 📝 Research Brief Agent
         run: |
-          mkdir -p aw research/briefs
-          cat > aw/manifest.json <<EOF
-          {
-            "issue": ${{ inputs.issue }},
-            "mission": "Research AW",
-            "agents": ["book", "source", "ontology", "rag", "brief"],
-            "status": "executed",
-            "outputs": ["research/sources/books.jsonl", "research/sources/inventory.jsonl", "research/ontology/communication-media.jsonl", "rag/research.jsonl", "research/briefs/p2-research-brief.md"],
-            "next": "claim extraction, evidence verification, Research Brief"
-          }
-          EOF
-          cat > research/briefs/p2-research-brief.md <<EOF
+          mkdir -p research/briefs
+          cat > research/briefs/p2-research-brief.md <<'EOF'
           # P2 Research Brief
 
-          - Issue: #${{ inputs.issue }}
+          - Issue: #12
           - Status: Research AW executed
-          - Source inventory: `research/sources/inventory.jsonl`
           - Book inventory: `research/sources/books.jsonl`
+          - Source inventory: `research/sources/inventory.jsonl`
           - Ontology: `research/ontology/communication-media.jsonl`
           - RAG: `rag/research.jsonl`
 
@@ -153,11 +103,13 @@ jobs:
           2. Assign evidence level A/B/C/D.
           3. Normalize timeline and relations.
           4. Cross-check conflicts and duplicates.
-          5. Expand this brief for handoff to `oppo-novel` and `oppo-poc`.
+          5. Handoff the Research Brief to `oppo-novel` and `oppo-poc`.
           EOF
-          cat aw/manifest.json
+
+      - name: 💾 Persist Research AW outputs
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/briefs/p2-research-brief.md
-          git commit -m "research: persist Research Brief" || true
+          git add research rag
+          git commit -m "research: persist Research AW outputs" || exit 0
           git push
