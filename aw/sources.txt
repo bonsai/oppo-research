@@ -1,0 +1,5 @@
+0990/README.md
+0990/ntt-q2.md
+0990/q2-spec-imagined.md
+2600/README.md
+2600/blue-box.md
