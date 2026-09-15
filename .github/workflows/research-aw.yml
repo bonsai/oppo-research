@@ -6,7 +6,7 @@ on:
       issue:
         description: "Research Issue number"
         required: true
-        default: "12"
+        default: "13"
   push:
     branches: [main]
 
@@ -15,14 +15,80 @@ permissions:
 
 jobs:
   research-aw:
-    name: Research AW #12
+    name: Research AW
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Set mission
-        run: echo "ISSUE=${{ inputs.issue || '12' }}" >> "$GITHUB_ENV"
+        run: echo "ISSUE=${{ inputs.issue || '13' }}" >> "$GITHUB_ENV"
+
+      - name: 📞 Special Numbers Agent
+        run: |
+          mkdir -p aw research
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          issue = int(__import__('os').environ.get('ISSUE', '13'))
+          numbers = [
+              ('110','1XY','警察','緊急通報'),
+              ('118','1XY','海上保安庁','海上における事件・事故の緊急通報'),
+              ('119','1XY','消防','火災・救急・救助の緊急通報'),
+              ('104','1XY','番号案内','電話番号案内'),
+              ('113','1XY','故障受付','電話サービスの故障受付'),
+              ('114','1XY','話中調査','話中の電話に関する調査'),
+              ('115','1XY','電報','電報サービス'),
+              ('116','1XY','電話サービス窓口','電話サービスの各種問い合わせ'),
+              ('117','1XY','時報','時刻案内'),
+              ('171','1XY','災害用伝言ダイヤル','災害時の安否等の音声伝言'),
+              ('177','1XY','天気予報','地域の天気予報'),
+              ('188','1XY','消費者ホットライン','消費生活相談窓口案内'),
+              ('189','1XY','児童相談所虐待対応ダイヤル','児童虐待に関する通告・相談'),
+              ('0120','0AB0','フリーダイヤル等','着信者課金型サービス'),
+              ('0570','0AB0','ナビダイヤル','全国共通の有料案内番号'),
+              ('0800','0AB0','着信課金','着信者課金型サービス'),
+              ('010','国際系','国際電話','国際電話の発信'),
+              ('020','0A0','M2M等','データ通信等に利用される番号帯'),
+              ('050','0A0','IP電話','IP電話'),
+              ('070','0A0','携帯電話等','携帯電話番号帯'),
+              ('080','0A0','携帯電話','携帯電話番号帯'),
+              ('090','0A0','携帯電話','携帯電話番号帯'),
+              ('1417','留守電','留守番電話','通信事業者等の留守番電話関連番号'),
+              ('1416','留守電','留守番電話','通信事業者等の留守番電話関連番号'),
+              ('#9110','特殊コード','警察相談','緊急ではない警察相談'),
+              ('#7119','特殊コード','救急安心センター','救急相談'),
+              ('1418','research','ボイスメモエージェント候補','研究上の仮番号。実在の特番とは区別する'),
+          ]
+
+          records = []
+          for number, category, name, purpose in numbers:
+              records.append({
+                  'number': number,
+                  'category': category,
+                  'name': name,
+                  'purpose': purpose,
+                  'operator': None,
+                  'availability': 'to_research',
+                  'fee': None,
+                  'caller': None,
+                  'interaction': None,
+                  'input': None,
+                  'output': None,
+                  'accessibility': None,
+                  'source': [],
+                  'notes': None,
+                  'research_status': 'seed',
+                  'issue': issue,
+                  'agent': 'special-numbers',
+              })
+
+          text = ''.join(json.dumps(r, ensure_ascii=False) + '\n' for r in records)
+          Path('aw/special-numbers.jsonl').write_text(text)
+          Path('research/special-numbers.jsonl').write_text(text)
+          print(f'special numbers seed records: {len(records)}')
+          PY
 
       - name: 📚 Book Agent
         run: |
@@ -30,7 +96,7 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          issue=12
+          issue=int(__import__('os').environ.get('ISSUE','13'))
           text=Path('books.md').read_text()
           rows=[]
           for line in text.splitlines():
@@ -50,8 +116,9 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
+          issue=int(__import__('os').environ.get('ISSUE','13'))
           files=Path('aw/sources.txt').read_text().splitlines()
-          records=[{'agent':'source','path':p,'issue':12,'status':'inventory'} for p in files]
+          records=[{'agent':'source','path':p,'issue':issue,'status':'inventory'} for p in files]
           text='\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n'
           Path('aw/source.jsonl').write_text(text)
           Path('research/sources/inventory.jsonl').write_text(text)
@@ -62,54 +129,14 @@ jobs:
         run: |
           mkdir -p research/ontology
           cat > research/ontology/communication-media.jsonl <<'EOF'
-          {"agent":"ontology","issue":12,"dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"],"entities":["Person","UnknownPerson","Message","Voice","Information","CommunicationMedium","Network","Community","Relationship","Payment","Memory","Narrative"]}
+          {"agent":"ontology","issue":13,"dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"],"entities":["Person","UnknownPerson","Message","Voice","Information","CommunicationMedium","Network","Community","Relationship","Payment","Memory","Narrative"]}
           EOF
           cp research/ontology/communication-media.jsonl aw/ontology.jsonl
-
-      - name: 🗂 RAG Agent
-        run: |
-          mkdir -p rag research/claims research/timeline
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          records=[]
-          for root in ('2600','0990'):
-              for p in Path(root).glob('**/*'):
-                  if p.is_file():
-                      records.append({'id':p.as_posix(),'type':'source','source':p.as_posix(),'evidence_level':'unverified','status':'inventory','issue':12})
-          text='\n'.join(json.dumps(x,ensure_ascii=False) for x in records)+'\n'
-          Path('aw/rag-research.jsonl').write_text(text)
-          Path('rag/research.jsonl').write_text(text)
-          Path('research/claims/README.md').write_text('# Claims\n\nResearch AW claim extraction output. Historical claims require provenance and evidence level A/B/C/D.\n')
-          Path('research/timeline/README.md').write_text('# Timeline\n\nResearch AW normalized communication-media timeline.\n')
-          print(f'RAG records: {len(records)}')
-          PY
-
-      - name: 📝 Research Brief Agent
-        run: |
-          mkdir -p research/briefs
-          cat > research/briefs/p2-research-brief.md <<'EOF'
-          # P2 Research Brief
-
-          - Issue: #12
-          - Status: Research AW executed
-          - Book inventory: `research/sources/books.jsonl`
-          - Source inventory: `research/sources/inventory.jsonl`
-          - Ontology: `research/ontology/communication-media.jsonl`
-          - RAG: `rag/research.jsonl`
-
-          ## Next
-          1. Extract claims from primary/contemporaneous sources.
-          2. Assign evidence level A/B/C/D.
-          3. Normalize timeline and relations.
-          4. Cross-check conflicts and duplicates.
-          5. Handoff the Research Brief to `oppo-novel` and `oppo-poc`.
-          EOF
 
       - name: 💾 Persist Research AW outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research rag
+          git add aw research
           git commit -m "research: persist Research AW outputs" || exit 0
           git push
