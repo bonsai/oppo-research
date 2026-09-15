@@ -1,0 +1,1 @@
+{"agent":"ontology","issue":12,"dimensions":["anonymity","speed","distance","accidentality","identity","persistence","reciprocity"],"entities":["Person","UnknownPerson","Message","Voice","Information","CommunicationMedium","Network","Community","Relationship","Payment","Memory","Narrative"]}
